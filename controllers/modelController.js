@@ -1,50 +1,113 @@
-const { Model, ModelInfo } = require("../models/models");
+const uuid = require("uuid");
+const path = require("path");
+const { Model, ModelInfo, ModelTaste, Taste } = require("../models/models");
 const ApiError = require("../error/ApiError");
+
+Model.prototype.setModelInfo = async function (modelInfo, modelId) {
+  // Связывание модели и информации о модели
+  this.infoId = modelInfo.id;
+  this.id = modelId;
+  await this.save();
+};
+
+ModelTaste.prototype.setTaste = async function (taste) {
+  this.tasteId = taste.id;
+  await this.save();
+};
+
+ModelTaste.prototype.setModel = async function (model) {
+  this.modelId = model.id;
+  await this.save();
+};
+
+Model.prototype.addTaste = async function (tasteData, options) {
+  const { title, description, count } = tasteData;
+  const taste = await Taste.create({ title, description });
+  await ModelTaste.create({
+    modelId: this.id,
+    tasteId: taste.id,
+    count: count,
+    photo: tasteData.fileName,
+  });
+};
 
 class ModelController {
   async create(req, res, next) {
     try {
-      let { title, description, price, newPrice, typeId, brandId, info } =
+      const { title, description, price, newPrice, modelInfo, tastes } =
         req.body;
-      const model = await Model.create({
-        title,
-        description,
-        newPrice,
-        price,
-        typeId,
-        brandId,
+
+      const modelInfoReg = JSON.parse(modelInfo);
+      // Создание модели
+      let model = await Model.create({ title, description, price, newPrice });
+
+      // Создание и связывание информации о модели
+      const modelInfoInstance = await ModelInfo.create({
+        description: modelInfoReg.description,
+        power: modelInfoReg.power,
+        nicotine: modelInfoReg.nicotine,
+        countSmoke: modelInfoReg.countSmoke,
+        charge: modelInfoReg.charge,
+        modelId: model.id,
+      });
+      await model.setModelInfo(modelInfoInstance, model.id);
+
+      const arrTaste = JSON.parse(tastes);
+
+      // Если указаны вкусы, создаем и связываем их с моделью
+      if (req.files && req.files.photo && req.files.photo.length > 0) {
+        console.log(req.files);
+        for (let i = 0; i < arrTaste.length; i++) {
+          const tasteData = arrTaste[i];
+          const { title, description, count } = tasteData;
+          console.log(tasteData);
+          console.log();
+          console.log(req.files.photo[i]);
+          let photo = req.files.photo[i]; // Получаем файл вкуса из req.files
+          let fileName = uuid.v4() + ".jpg";
+          await photo.mv(path.resolve(__dirname, "..", "static", fileName));
+
+          // Создание вкуса и связывание с моделью
+          await model.addTaste({ title, description, count, fileName });
+        }
+      }
+
+      model = await Model.findOne({
+        where: { id: model.id },
+        include: [
+          { model: ModelInfo, as: "model_info" },
+          { model: Taste, as: "tastes" },
+        ],
       });
 
-      if (info) {
-        info = JSON.parse(info);
-        info.forEach((i) => {
-          ModelInfo.create({
-            description: i.description,
-            power: i.power,
-            nicotine: i.nicotine,
-            countSmoke: i.countSmoke,
-            charge: i.charge,
-            modelId: model.id,
-          });
-        });
-      }
-      return res.json(model);
+      res.status(201).json(model);
     } catch (e) {
       next(ApiError.badRequest(e.message));
     }
   }
-  async getAll(req, res) {
-    const models = await Model.findAll();
-    return res.json(models);
+  async getAll(req, res, next) {
+    try {
+      const models = await Model.findAll({
+        include: [
+          { model: ModelInfo, as: "model_info" },
+          { model: Taste, as: "tastes" },
+        ],
+      });
+
+      return res.json(models);
+    } catch (e) {
+      next(ApiError.badRequest(e.message));
+    }
   }
   async getOne(req, res) {
     const { id } = req.params;
     const model = await Model.findOne({
       where: { id },
-      include: [{ info: ModelInfo, as: "info" }],
+      include: [{ model: ModelInfo, as: "model_info" }],
     });
-    console.log(id);
+
     return res.json(model);
   }
 }
+
 module.exports = new ModelController();

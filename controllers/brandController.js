@@ -1,16 +1,37 @@
-const { Brand } = require("../models/models");
+const { Brand, Type } = require("../models/models");
 const ApiError = require("../error/ApiError");
 
 class BrandController {
   async create(req, res) {
-    const { title } = req.body;
-    const brand = await Brand.create({ title });
-    return res.json(brand);
+    try {
+      try {
+        const { title } = req.body;
+        const brand = await Brand.create({ title });
+        res.json(brand);
+      } catch (error) {
+        res.status(500).json({ error: 'Failed to create brand' });
+      }
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
   }
+
   async getAll(req, res) {
-    const brands = await Brand.findAll();
-    return res.json(brands);
+    try {
+      const brands = await Brand.findAll({
+        include: {
+          model: Type,
+          as: 'types',
+          attributes: ['id', 'title'],
+          through: { attributes: [] },
+        },
+      });
+      res.json(brands);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to retrieve brands' });
+    }
   }
 }
+
 
 module.exports = new BrandController();

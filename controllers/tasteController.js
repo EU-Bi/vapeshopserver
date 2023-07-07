@@ -1,36 +1,23 @@
-const { Taste } = require("../models/models");
+const { Taste, TasteInfo } = require("../models/models");
 const ApiError = require("../error/ApiError");
 
 class TasteController {
   async create(req, res, next) {
     try {
-      let { title, modelId, description, count } = req.body;
-      const taste = await Taste.create({ title, modelId, description, count });
+      let { title, description } = req.body;
+      const taste = await Taste.create({ title, description });
       return res.json(taste);
     } catch (e) {
       next(ApiError.badRequest(e.message));
     }
   }
   async getAll(req, res) {
-    const { modelId } = req.query;
-
-    let tastes;
-
-    if (modelId) {
-      tastes = await Taste.findAll({
-        where: { modelId },
-      });
-    } else {
-      tastes = await Taste.findAll();
+    try {
+      const tastes = await Taste.findAll();
+      return res.json(tastes);
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to get tastes' });
     }
-    return res.json(tastes);
-  }
-  async getOne(req, res) {
-    const { id } = req.params;
-    const taste = await Taste.findOne({
-      where: { id },
-    });
-    return res.json(taste);
   }
 }
 
