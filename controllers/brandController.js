@@ -4,15 +4,46 @@ const ApiError = require("../error/ApiError");
 class BrandController {
   async create(req, res) {
     try {
-      try {
-        const { title } = req.body;
-        const brand = await Brand.create({ title });
-        res.json(brand);
-      } catch (error) {
-        res.status(500).json({ error: 'Failed to create brand' });
-      }
+      const { title } = req.body;
+      const brand = await Brand.create({ title });
+      res.json(brand);
     } catch (error) {
-      return res.status(500).json({ error: error.message });
+      res.status(500).json({ error: 'Failed to create brand' });
+    }
+  }
+
+  async delete(req, res, next) {
+    const { id } = req.params;
+
+    try {
+      const brand = await Brand.findByPk(id);
+      if (!brand) {
+        return res.status(404).json({ error: 'Brand not found' });
+      }
+
+      await brand.destroy();
+
+      res.status(200).json({ message: 'Brand deleted successfully' });
+    } catch (e) {
+      next(ApiError.badRequest(e.message));
+    }
+  }
+
+  async update(req, res, next) {
+    const { id } = req.params;
+    const { title } = req.body;
+
+    try {
+      const brand = await Brand.findByPk(id);
+      if (!brand) {
+        return res.status(404).json({ error: 'Brand not found' });
+      }
+
+      await brand.update({ title });
+
+      res.status(200).json(brand);
+    } catch (e) {
+      next(ApiError.badRequest(e.message));
     }
   }
 
@@ -32,6 +63,5 @@ class BrandController {
     }
   }
 }
-
 
 module.exports = new BrandController();

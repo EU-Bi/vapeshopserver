@@ -85,6 +85,91 @@ class ModelController {
       next(ApiError.badRequest(e.message));
     }
   }
+
+  async delete(req, res, next) {
+    const { id } = req.params;
+
+    try {
+      const model = await Model.findByPk(id);
+      if (!model) {
+        return res.status(404).json({ error: "Модель не найдена" });
+      }
+
+      await model.destroy();
+
+      res.status(200).json({ message: "Модель успешно удалена" });
+    } catch (e) {
+      next(ApiError.badRequest(e.message));
+    }
+  }
+
+  async update(req, res, next) {
+    const { id } = req.params;
+    const { title, description, price, newPrice, modelInfo, tastes } = req.body;
+
+    try {
+      let model = await Model.findByPk(id);
+      if (!model) {
+        return res.status(404).json({ error: "Модель не найдена" });
+      }
+
+      const modelInfoReg = JSON.parse(modelInfo);
+      await model.update({ title, description, price, newPrice });
+
+      if (modelInfo) {
+        const modelInfoInstance = await ModelInfo.findOne({
+          where: { modelId: model.id },
+        });
+        if (modelInfoInstance) {
+          await modelInfoInstance.update({
+            description: modelInfoReg.description,
+            power: modelInfoReg.power,
+            nicotine: modelInfoReg.nicotine,
+            countSmoke: modelInfoReg.countSmoke,
+            charge: modelInfoReg.charge,
+          });
+        } else {
+          await ModelInfo.create({
+            description: modelInfoReg.description,
+            power: modelInfoReg.power,
+            nicotine: modelInfoReg.nicotine,
+            countSmoke: modelInfoReg.countSmoke,
+            charge: modelInfoReg.charge,
+            modelId: model.id,
+          });
+        }
+      }
+
+      if (tastes && req.files && req.files.photo && req.files.photo.length > 0) {
+        await ModelTaste.destroy({ where: { modelId: model.id } });
+
+        const arrTaste = JSON.parse(tastes);
+        for (let i = 0; i < arrTaste.length; i++) {
+          const tasteData = arrTaste[i];
+          const { title, description, count } = tasteData;
+
+          let photo = req.files.photo[i];
+          let fileName = uuid.v4() + ".jpg";
+          await photo.mv(path.resolve(__dirname, "..", "static", fileName));
+
+          await model.addTaste({ title, description, count, fileName });
+        }
+      }
+
+      model = await Model.findOne({
+        where: { id: model.id },
+        include: [
+          { model: ModelInfo, as: "model_info" },
+          { model: Taste, as: "tastes" },
+        ],
+      });
+
+      res.status(200).json(model);
+    } catch (e) {
+      next(ApiError.badRequest(e.message));
+    }
+  }
+
   async getAll(req, res, next) {
     try {
       const models = await Model.findAll({
@@ -99,6 +184,7 @@ class ModelController {
       next(ApiError.badRequest(e.message));
     }
   }
+
   async getOne(req, res) {
     const { id } = req.params;
     const model = await Model.findOne({

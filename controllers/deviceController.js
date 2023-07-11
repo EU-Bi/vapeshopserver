@@ -8,6 +8,7 @@ const {
   ModelTaste,
 } = require("../models/models");
 const ApiError = require("../error/ApiError");
+
 class DeviceController {
   async create(req, res, next) {
     try {
@@ -19,12 +20,12 @@ class DeviceController {
           { model: Taste, as: "tastes" },
         ],
       });
-    
+
       // Проверка, есть ли вкусы у модели
       if (!model.tastes || model.tastes.length === 0) {
         return res.status(400).json({ error: "Модель не содержит вкусов" });
       }
-    
+
       // Создание девайсов для каждого вкуса
       const createdDevices = await Promise.all(
         model.tastes.map(async (taste) => {
@@ -37,16 +38,16 @@ class DeviceController {
           return device;
         })
       );
-    
+
       // Получение полной информации о типе
       const type = await Type.findByPk(typeId);
-    
+
       // Получение полной информации о бренде
       const brand = await Brand.findOne({
         where: { id: brandId },
         include: [{ model: Type, as: "types" }],
       });
-    
+
       // Формирование результата
       const result = {
         devices: createdDevices,
@@ -54,12 +55,48 @@ class DeviceController {
         model,
         brand,
       };
-    
+
       res.status(201).json(result);
     } catch (e) {
       next(ApiError.badRequest(e.message));
     }
   }
+
+  async delete(req, res, next) {
+    const { id } = req.params;
+
+    try {
+      const device = await Device.findByPk(id);
+      if (!device) {
+        return res.status(404).json({ error: "Устройство не найдено" });
+      }
+
+      await device.destroy();
+
+      res.status(200).json({ message: "Устройство успешно удалено" });
+    } catch (e) {
+      next(ApiError.badRequest(e.message));
+    }
+  }
+
+  async update(req, res, next) {
+    const { id } = req.params;
+    const { typeId, modelId, brandId } = req.body;
+
+    try {
+      const device = await Device.findByPk(id);
+      if (!device) {
+        return res.status(404).json({ error: "Устройство не найдено" });
+      }
+
+      await device.update({ typeId, modelId, brandId });
+
+      res.status(200).json(device);
+    } catch (e) {
+      next(ApiError.badRequest(e.message));
+    }
+  }
+
   async getAll(req, res, next) {
     let { page, limit } = req.query;
     page = page || 1;
@@ -90,8 +127,8 @@ class DeviceController {
         brandId: device.brand.id,
         brand: device.brand.title,
         modelId: device.model.id,
-        createdAt:device.createdAt,
-        updatedAt:device.updatedAt,
+        createdAt: device.createdAt,
+        updatedAt: device.updatedAt,
         model: {
           title: device.model.title,
           description: device.model.description,
