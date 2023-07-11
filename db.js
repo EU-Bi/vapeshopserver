@@ -1,4 +1,5 @@
 const { Sequelize } = require("sequelize");
+import * as pg from "pg";
 
 module.exports = new Sequelize(
   // process.env.DB_NAME,
@@ -9,5 +10,8 @@ module.exports = new Sequelize(
   //     host:process.env.DB_HOST,
   //     port:process.env.DB_PORT
   // }
-  process.env.POSTGRES_URL + "?sslmode=require"
+  process.env.POSTGRES_URL + "?sslmode=require",
+  {
+    dialectModule: pg,
+  }
 );
