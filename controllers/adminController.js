@@ -1,6 +1,6 @@
 const ApiError = require("../error/ApiError");
 const { Admin } = require("../models/models");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwToken = require("jsonwebtoken");
 
 const generateJWT = (id, login) => {
