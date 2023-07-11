@@ -56,19 +56,22 @@ class ModelController {
 
       // Если указаны вкусы, создаем и связываем их с моделью
       if (req.files && req.files.photo && req.files.photo.length > 0) {
-        console.log(req.files);
         for (let i = 0; i < arrTaste.length; i++) {
           const tasteData = arrTaste[i];
           const { title, description, count } = tasteData;
-          console.log(tasteData);
-          console.log();
-          console.log(req.files.photo[i]);
+
           let photo = req.files.photo[i]; // Получаем файл вкуса из req.files
           let fileName = uuid.v4() + ".jpg";
           await photo.mv(path.resolve(__dirname, "..", "static", fileName));
 
           // Создание вкуса и связывание с моделью
-          await model.addTaste({ title, description, count, fileName });
+          const taste = await Taste.create({ title, description });
+          await ModelTaste.create({
+            modelId: model.id,
+            tasteId: taste.id,
+            count: count,
+            photo: fileName,
+          });
         }
       }
 
@@ -108,61 +111,68 @@ class ModelController {
     const { title, description, price, newPrice, modelInfo, tastes } = req.body;
 
     try {
-      let model = await Model.findByPk(id);
+      const model = await Model.findByPk(id);
       if (!model) {
         return res.status(404).json({ error: "Модель не найдена" });
       }
 
-      const modelInfoReg = JSON.parse(modelInfo);
-      await model.update({ title, description, price, newPrice });
+      // Обновление основных свойств модели
+      model.title = title;
+      model.description = description;
+      model.price = price;
+      model.newPrice = newPrice;
+      await model.save();
 
-      if (modelInfo) {
-        const modelInfoInstance = await ModelInfo.findOne({
-          where: { modelId: model.id },
-        });
-        if (modelInfoInstance) {
-          await modelInfoInstance.update({
-            description: modelInfoReg.description,
-            power: modelInfoReg.power,
-            nicotine: modelInfoReg.nicotine,
-            countSmoke: modelInfoReg.countSmoke,
-            charge: modelInfoReg.charge,
-          });
-        } else {
-          await ModelInfo.create({
-            description: modelInfoReg.description,
-            power: modelInfoReg.power,
-            nicotine: modelInfoReg.nicotine,
-            countSmoke: modelInfoReg.countSmoke,
-            charge: modelInfoReg.charge,
-            modelId: model.id,
-          });
-        }
+      // Обновление информации о модели
+      const modelInfoReg = JSON.parse(modelInfo);
+      if (model.model_info) {
+        model.model_info.description = modelInfoReg.description;
+        model.model_info.power = modelInfoReg.power;
+        model.model_info.nicotine = modelInfoReg.nicotine;
+        model.model_info.countSmoke = modelInfoReg.countSmoke;
+        model.model_info.charge = modelInfoReg.charge;
+        await model.model_info.save();
       }
 
-      if (tastes && req.files && req.files.photo && req.files.photo.length > 0) {
-        await ModelTaste.destroy({ where: { modelId: model.id } });
-
+      // Обновление вкусов модели
+      if (tastes) {
         const arrTaste = JSON.parse(tastes);
         for (let i = 0; i < arrTaste.length; i++) {
           const tasteData = arrTaste[i];
-          const { title, description, count } = tasteData;
+          const { id, title, description, count, fileName } = tasteData;
 
-          let photo = req.files.photo[i];
-          let fileName = uuid.v4() + ".jpg";
-          await photo.mv(path.resolve(__dirname, "..", "static", fileName));
+          let photo = req.files.photo[i]; // Получаем файл вкуса из req.files
+          if (photo) {
+            // Если есть новое фото, сохраняем его
+            fileName = uuid.v4() + ".jpg";
+            await photo.mv(path.resolve(__dirname, "..", "static", fileName));
+          }
 
-          await model.addTaste({ title, description, count, fileName });
+          // Обновление существующего или создание нового вкуса
+          if (id) {
+            const modelTaste = await ModelTaste.findOne({
+              where: { modelId: model.id, tasteId: id },
+            });
+            if (modelTaste) {
+              modelTaste.count = count;
+              if (photo) {
+                modelTaste.photo = fileName;
+              }
+              await modelTaste.save();
+            }
+          } else {
+            const taste = await Taste.create({ title, description });
+            await ModelTaste.create({
+              modelId: model.id,
+              tasteId: taste.id,
+              count: count,
+              photo: fileName,
+            });
+          }
         }
       }
 
-      model = await Model.findOne({
-        where: { id: model.id },
-        include: [
-          { model: ModelInfo, as: "model_info" },
-          { model: Taste, as: "tastes" },
-        ],
-      });
+      model.tastes = await model.getTastes();
 
       res.status(200).json(model);
     } catch (e) {
@@ -195,5 +205,8 @@ class ModelController {
     return res.json(model);
   }
 }
+
+module.exports = new ModelController();
+
 
 module.exports = new ModelController();
