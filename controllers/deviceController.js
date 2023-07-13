@@ -98,11 +98,11 @@ class DeviceController {
   }
 
   async getAll(req, res, next) {
-    let { page, limit } = req.query;
-    page = page || 1;
-    limit = limit || 12;
+    // let { page, limit } = req.query;
+    // page = page || 1;
+    // limit = limit || 9999999999999999999;
 
-    let offset = page * limit - limit;
+    // let offset = page * limit - limit;
     let devices;
     try {
       devices = await Device.findAndCountAll({
@@ -116,9 +116,7 @@ class DeviceController {
               { model: Taste, as: "tastes", through: ModelTaste },
             ],
           },
-        ],
-        limit,
-        offset,
+        ]
       });
       const devicesWithInfo = devices.rows.map((device) => ({
         id: device.id,

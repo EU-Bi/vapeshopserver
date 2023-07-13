@@ -34,14 +34,28 @@ Model.prototype.addTaste = async function (tasteData, options) {
 class ModelController {
   async create(req, res, next) {
     try {
-      const { title, description, price, newPrice, modelInfo, tastes } =
-        req.body;
-
+      const {
+        title,
+        description,
+        brandId,
+        price,
+        newPrice,
+        modelInfo,
+        tastes,
+      } = req.body;
+      // console.log(req.body);
+      // console.log(Object.keys(req.files));
       const modelInfoReg = JSON.parse(modelInfo);
-      // Создание модели
-      let model = await Model.create({ title, description, price, newPrice });
+      //Создание модели
+      let model = await Model.create({
+        title,
+        brandId,
+        description,
+        price,
+        newPrice,
+      });
 
-      // Создание и связывание информации о модели
+      //Создание и связывание информации о модели
       const modelInfoInstance = await ModelInfo.create({
         description: modelInfoReg.description,
         power: modelInfoReg.power,
@@ -53,17 +67,16 @@ class ModelController {
       await model.setModelInfo(modelInfoInstance, model.id);
 
       const arrTaste = JSON.parse(tastes);
-
-      // Если указаны вкусы, создаем и связываем их с моделью
-      if (req.files && req.files.photo && req.files.photo.length > 0) {
+      //Если указаны вкусы, создаем и связываем их с моделью
+      if (req.files) {
         for (let i = 0; i < arrTaste.length; i++) {
           const tasteData = arrTaste[i];
           const { title, description, count } = tasteData;
-
-          let photo = req.files.photo[i]; // Получаем файл вкуса из req.files
+          // console.log(tasteData);
+          let photo = req.files[`photo[${i}]`]; // Получаем файл вкуса из req.files
           let fileName = uuid.v4() + ".jpg";
           await photo.mv(path.resolve(__dirname, "..", "static", fileName));
-
+          // console.log(fileName);
           // Создание вкуса и связывание с моделью
           const taste = await Taste.create({ title, description });
           await ModelTaste.create({
@@ -141,7 +154,7 @@ class ModelController {
           const tasteData = arrTaste[i];
           const { id, title, description, count, fileName } = tasteData;
 
-          let photo = req.files.photo[i]; // Получаем файл вкуса из req.files
+          let photo = req.files[`photo[${i}]`]; // Получаем файл вкуса из req.files
           if (photo) {
             // Если есть новое фото, сохраняем его
             fileName = uuid.v4() + ".jpg";
@@ -205,8 +218,5 @@ class ModelController {
     return res.json(model);
   }
 }
-
-module.exports = new ModelController();
-
 
 module.exports = new ModelController();
